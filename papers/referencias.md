@@ -24,17 +24,17 @@ Papers investigados por cada integrante del grupo, centrados en modelos de árbo
 ## Angel Gabriel Díaz Chavez (U20221C424)
 
 1. **Multi-GPU approach to global induction of classification trees for large-scale data mining**
-   Jurczuk, K., Czajkowski, M., & Kretowski, M. (2021). *Applied Intelligence*, 51(8), 5683–5700. https://doi.org/10.1007/s10489-020-01952-5
+   Jurczuk, K., Czajkowski, M., & Kretowski, M. (2021). *Applied Intelligence*, 51(8), 5683–5700. 
    Propone repartir el dataset entre varias GPUs para acelerar la inducción evolutiva de árboles de clasificación sobre datasets de gran escala, sincronizando en la CPU los resultados parciales calculados en paralelo por cada GPU.
    Link: https://doi.org/10.1007/s10489-020-01952-5
 
 2. **GPU-based acceleration of evolutionary induction of model trees**
-   Jurczuk, K., Czajkowski, M., & Kretowski, M. (2022). *Applied Soft Computing*, 119, 108503. https://doi.org/10.1016/j.asoc.2022.108503
+   Jurczuk, K., Czajkowski, M., & Kretowski, M. (2022). *Applied Soft Computing*, 119, 108503. 
    Diseña seis procedimientos de aceleración por GPU para el entrenamiento evolutivo de Model Trees, paralelizando tanto la evaluación de instancias como el ajuste de regresiones lineales en las hojas.
    Link: https://doi.org/10.1016/j.asoc.2022.108503
 
 3. **From distributed machine to distributed deep learning: a comprehensive survey**
-   Dehghani, M., & Yazdanparast, Z. (2023). *Journal of Big Data*, 10(1), 158. https://doi.org/10.1186/s40537-023-00829-x
+   Dehghani, M., & Yazdanparast, Z. (2023). *Journal of Big Data*, 10(1), 158. 
    Revisa y clasifica las principales estrategias de paralelización y distribución en machine learning (clasificación, clustering, deep learning y aprendizaje por refuerzo), destacando el paralelismo de datos como patrón base aplicable a nuestro enfoque con goroutines.
    Link: https://doi.org/10.1186/s40537-023-00829-x
 
