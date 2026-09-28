@@ -27,7 +27,7 @@ El notebook genera `water_quality_clean.csv`, además de las gráficas de nulos 
 
 ## Documentación
 
-- Informe completo (PC1): [`docs/PC1/CC65-PC1-202620.docx`](docs/PC1/CC65-PC1-202620.docx)
+- Informe completo (PC2): [`docs/PC2/CC65-PC2-202620.docx`](docs/PC2/CC65-PC2-202620.docx)
 - Papers investigados: [`papers/referencias.md`](papers/referencias.md)
 
 ## Integrantes
