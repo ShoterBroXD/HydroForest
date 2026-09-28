@@ -1,0 +1,3 @@
+*.csv
+go/results.csv
+/go/bin/
