@@ -1,0 +1,9 @@
+seccion,workers,media_recortada_s,speedup,eficiencia
+secuencial,1,249.1516,1.00,1.00
+concurrente,20,45.9451,5.42,0.27
+escalabilidad,1,247.1710,1.01,1.01
+escalabilidad,2,129.8367,1.92,0.96
+escalabilidad,4,71.6658,3.48,0.87
+escalabilidad,8,55.8240,4.46,0.56
+escalabilidad,16,52.1306,4.78,0.30
+escalabilidad,20,47.4181,5.25,0.26
