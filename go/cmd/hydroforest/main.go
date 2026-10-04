@@ -22,12 +22,22 @@ func main() {
 	runs := flag.Int("runs", 5, "número de corridas por configuración, para la media recortada")
 	trim := flag.Int("trim", 1, "cuántas corridas se recortan de cada extremo (media recortada)")
 	outCSV := flag.String("out", "results.csv", "archivo CSV donde guardar la tabla de speedup")
-	mode := flag.String("mode", "bench", "bench: speedup y escalabilidad | demo: una corrida con registro por worker | sweep: barrido fino de 1 a N workers")
+	mode := flag.String("mode", "bench", "bench: speedup y escalabilidad | demo: una corrida con registro por worker | sweep: barrido fino de 1 a N workers | predict: evaluador interactivo para usuarios")
 	demoWorkers := flag.Int("workers", 0, "workers para el modo demo (0 = NumCPU)")
 	baseline := flag.Float64("baseline", 0, "modo sweep: tiempo secuencial ya medido en segundos (0 = medirlo)")
 	threshold := flag.Float64("threshold", 5, "modo sweep: ganancia marginal mínima (%) para considerar que un worker extra vale la pena")
 	sweepOut := flag.String("sweep-out", "sweep.csv", "modo sweep: archivo CSV del barrido fino")
+	modelPath := flag.String("model", "hydroforest_model.gob", "modo predict: archivo donde se guarda el modelo entrenado")
 	flag.Parse()
+
+	if *mode == "predict" {
+		if *dataPath == "" {
+			fmt.Fprintln(os.Stderr, "falta el dataset: usa -data ruta/a/water_quality_clean.csv")
+			os.Exit(1)
+		}
+		runPredict(*dataPath, *modelPath)
+		return
+	}
 
 	fmt.Println("=== HydroForest - PC2: Random Forest secuencial vs. concurrente ===")
 
@@ -67,7 +77,7 @@ func main() {
 		return
 	case "bench":
 	default:
-		fmt.Fprintf(os.Stderr, "modo desconocido %q (usa bench, demo o sweep)\n", *mode)
+		fmt.Fprintf(os.Stderr, "modo desconocido %q (usa bench, demo, sweep o predict)\n", *mode)
 		os.Exit(1)
 	}
 
