@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"time"
 
 	"hydroforest/internal/bench"
 	"hydroforest/internal/dataset"
@@ -21,6 +22,11 @@ func main() {
 	runs := flag.Int("runs", 5, "número de corridas por configuración, para la media recortada")
 	trim := flag.Int("trim", 1, "cuántas corridas se recortan de cada extremo (media recortada)")
 	outCSV := flag.String("out", "results.csv", "archivo CSV donde guardar la tabla de speedup")
+	mode := flag.String("mode", "bench", "bench: speedup y escalabilidad | demo: una corrida con registro por worker | sweep: barrido fino de 1 a N workers")
+	demoWorkers := flag.Int("workers", 0, "workers para el modo demo (0 = NumCPU)")
+	baseline := flag.Float64("baseline", 0, "modo sweep: tiempo secuencial ya medido en segundos (0 = medirlo)")
+	threshold := flag.Float64("threshold", 5, "modo sweep: ganancia marginal mínima (%) para considerar que un worker extra vale la pena")
+	sweepOut := flag.String("sweep-out", "sweep.csv", "modo sweep: archivo CSV del barrido fino")
 	flag.Parse()
 
 	fmt.Println("=== HydroForest - PC2: Random Forest secuencial vs. concurrente ===")
@@ -51,6 +57,19 @@ func main() {
 	numWorkers := runtime.NumCPU()
 	fmt.Printf("Config: %d árboles, profundidad máx %d, %d corridas por versión, %d workers (NumCPU)\n",
 		cfg.NumTrees, cfg.MaxDepth, *runs, numWorkers)
+
+	switch *mode {
+	case "demo":
+		runDemo(train, test, cfg, *demoWorkers)
+		return
+	case "sweep":
+		runSweep(train, cfg, numWorkers, *runs, *trim, *baseline, *threshold, *sweepOut)
+		return
+	case "bench":
+	default:
+		fmt.Fprintf(os.Stderr, "modo desconocido %q (usa bench, demo o sweep)\n", *mode)
+		os.Exit(1)
+	}
 
 	resBefore := bench.CaptureResources()
 
@@ -107,6 +126,97 @@ func writeResultsCSV(path string, seq, con bench.RunResult, speedup float64, row
 	w.Write([]string{"concurrente", strconv.Itoa(con.NumWorkers), fmt.Sprintf("%.4f", con.TrimmedAvg), fmt.Sprintf("%.2f", speedup), fmt.Sprintf("%.2f", speedup/float64(con.NumWorkers))})
 	for _, r := range rows {
 		w.Write([]string{"escalabilidad", strconv.Itoa(r.Workers), fmt.Sprintf("%.4f", r.TrimmedAvg), fmt.Sprintf("%.2f", r.Speedup), fmt.Sprintf("%.2f", r.Efficiency)})
+	}
+	return nil
+}
+
+// runDemo entrena una vez cada versión mostrando qué árbol toma y termina cada
+// worker. Sirve como evidencia de ejecución (no se usa para medir speedup).
+func runDemo(train, test *dataset.Dataset, cfg forest.Config, workers int) {
+	if workers <= 0 {
+		workers = runtime.NumCPU()
+	}
+	cfg.Verbose = true
+
+	fmt.Println()
+	fmt.Println("=== DEMO secuencial (1 hilo) ===")
+	t0 := time.Now()
+	fSeq := forest.TrainSequential(train.X, train.Y, cfg)
+	tSeq := time.Since(t0).Seconds()
+	fmt.Printf("Tiempo secuencial: %.2f s\n", tSeq)
+
+	fmt.Println()
+	fmt.Printf("=== DEMO concurrente (%d workers) ===\n", workers)
+	t0 = time.Now()
+	fCon := forest.TrainConcurrent(train.X, train.Y, cfg, workers)
+	tCon := time.Since(t0).Seconds()
+	fmt.Printf("Tiempo concurrente: %.2f s\n", tCon)
+
+	fmt.Println()
+	fmt.Println("=== Resumen de la demo ===")
+	fmt.Printf("Speedup de esta corrida: %.2fx\n", tSeq/tCon)
+	fmt.Printf("Accuracy secuencial:  %.2f%%\n", fSeq.Accuracy(test.X, test.Y)*100)
+	fmt.Printf("Accuracy concurrente: %.2f%%\n", fCon.Accuracy(test.X, test.Y)*100)
+}
+
+// runSweep mide el tiempo con 1, 2, 3, ... maxWorkers workers y ubica el
+// punto de equilibrio. Guarda la tabla completa en un CSV.
+func runSweep(train *dataset.Dataset, cfg forest.Config, maxWorkers, runs, trim int, baseline, threshold float64, out string) {
+	if baseline <= 0 {
+		fmt.Printf("\nMidiendo la línea base secuencial (%d corridas)...\n", runs)
+		seqTimes := bench.TimeRuns(runs, func() *forest.Forest {
+			return forest.TrainSequential(train.X, train.Y, cfg)
+		})
+		baseline = bench.TrimmedMean(seqTimes, trim)
+	}
+	fmt.Printf("Línea base secuencial: %.2f s\n", baseline)
+
+	rows := bench.FineSweep(train.X, train.Y, cfg, maxWorkers, runs, trim, baseline)
+	eq := bench.MarkEquilibrium(rows, threshold)
+
+	fmt.Println()
+	if eq > 0 {
+		fmt.Printf("Punto de equilibrio: %d workers (agregar uno más reduce el tiempo en menos de %.1f%%)\n", eq, threshold)
+	} else {
+		fmt.Printf("No se alcanzó el punto de equilibrio: cada worker agregado siguió reduciendo el tiempo en %.1f%% o más\n", threshold)
+	}
+
+	if err := writeSweepCSV(out, baseline, rows); err != nil {
+		fmt.Fprintf(os.Stderr, "no se pudo guardar %s: %v\n", out, err)
+	} else {
+		fmt.Printf("Barrido guardado en %s\n", out)
+	}
+}
+
+func writeSweepCSV(path string, baseline float64, rows []bench.FineSweepRow) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+	defer w.Flush()
+
+	w.Write([]string{"workers", "media_recortada_s", "speedup", "eficiencia", "ganancia_marginal_pct", "equilibrio", "baseline_secuencial_s"})
+	for i, r := range rows {
+		gain := ""
+		if i > 0 {
+			gain = fmt.Sprintf("%.2f", r.MarginalGain)
+		}
+		eq := "0"
+		if r.IsEquilibrium {
+			eq = "1"
+		}
+		w.Write([]string{
+			strconv.Itoa(r.Workers),
+			fmt.Sprintf("%.4f", r.TrimmedAvg),
+			fmt.Sprintf("%.2f", r.Speedup),
+			fmt.Sprintf("%.2f", r.Efficiency),
+			gain,
+			eq,
+			fmt.Sprintf("%.4f", baseline),
+		})
 	}
 	return nil
 }

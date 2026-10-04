@@ -1,5 +1,6 @@
 *.csv
 !go/results.csv
+!go/sweep.csv
 /go/bin/
 promela/pan
 promela/pan.*

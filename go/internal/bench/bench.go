@@ -140,3 +140,61 @@ func roundAll(v []float64) []float64 {
 	}
 	return out
 }
+
+// FineSweepRow es una fila del barrido fino: un número de workers con su
+// tiempo, speedup, eficiencia y la ganancia marginal respecto al anterior.
+type FineSweepRow struct {
+	Workers       int
+	TrimmedAvg    float64
+	Speedup       float64
+	Efficiency    float64
+	MarginalGain  float64 // % en que bajó el tiempo al agregar este worker
+	IsEquilibrium bool
+}
+
+// FineSweep mide el tiempo concurrente para cada número de workers de 1 a
+// maxWorkers, de uno en uno. Imprime cada fila apenas termina, para poder
+// seguir el progreso de una ejecución larga.
+func FineSweep(X [][]float64, y []int, cfg forest.Config, maxWorkers, runs, trim int, baselineSeq float64) []FineSweepRow {
+	rows := make([]FineSweepRow, 0, maxWorkers)
+	fmt.Println()
+	fmt.Println("=== Barrido fino de workers ===")
+	fmt.Printf("%-8s %-16s %-10s %-11s %s\n", "Workers", "Media recortada", "Speedup", "Eficiencia", "Ganancia marginal")
+	for w := 1; w <= maxWorkers; w++ {
+		times := TimeRuns(runs, func() *forest.Forest {
+			return forest.TrainConcurrent(X, y, cfg, w)
+		})
+		avg := TrimmedMean(times, trim)
+		row := FineSweepRow{
+			Workers:    w,
+			TrimmedAvg: avg,
+			Speedup:    baselineSeq / avg,
+		}
+		row.Efficiency = row.Speedup / float64(w)
+		if len(rows) > 0 {
+			prev := rows[len(rows)-1].TrimmedAvg
+			row.MarginalGain = (prev - avg) / prev * 100
+		}
+		rows = append(rows, row)
+
+		gain := "      -"
+		if w > 1 {
+			gain = fmt.Sprintf("%6.1f%%", row.MarginalGain)
+		}
+		fmt.Printf("%-8d %-16.4f %-10.2f %-11.2f %s\n", w, avg, row.Speedup, row.Efficiency, gain)
+	}
+	return rows
+}
+
+// MarkEquilibrium marca como punto de equilibrio el primer número de workers
+// a partir del cual agregar un worker más reduce el tiempo en menos de
+// `threshold` por ciento. Devuelve ese número de workers (0 si no se alcanza).
+func MarkEquilibrium(rows []FineSweepRow, threshold float64) int {
+	for i := 0; i < len(rows)-1; i++ {
+		if rows[i+1].MarginalGain < threshold {
+			rows[i].IsEquilibrium = true
+			return rows[i].Workers
+		}
+	}
+	return 0
+}

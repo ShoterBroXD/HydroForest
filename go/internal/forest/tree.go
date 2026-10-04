@@ -12,6 +12,7 @@ type Config struct {
 	MinSamplesSplit int
 	NumClasses      int
 	Seed            int64
+	Verbose         bool // si es true, imprime cuando cada árbol empieza y termina
 }
 
 type Node struct {
