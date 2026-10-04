@@ -3,6 +3,7 @@
 /go/bin/
 promela/pan
 promela/pan.*
+promela/pan_*
 promela/_spin_nvr.tmp
 promela/*.trail
 promela/*.exe
