@@ -8,3 +8,4 @@ promela/pan_*
 promela/_spin_nvr.tmp
 promela/*.trail
 promela/*.exe
+go/*.gob
